@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nuestros momentos</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #fff0f5;
+      color: #b03060;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 20px;
+    }
+    .form-container, .post {
+      background: #ffe4e1;
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    input, textarea {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #ff69b4;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #ff1493;
+    }
+    img, video {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .delete-button {
+      background-color: #dc143c;
+      margin-top: 10px;
+    }
+    .delete-button:hover {
+      background-color: #a0002c;
+    }
+  </style>
+</head>
+<body>
+  <h1>✈️ Nuestros viajes ✈️</h1>
+
+  <div class="form-container">
+    <h2>Agregar nuevo recuerdo</h2>
+    <input type="text" id="title" placeholder="Título del recuerdo" />
+    <input type="text" id="imageUrl" placeholder="URL de imagen (opcional)" />
+    <input type="text" id="videoUrl" placeholder="URL de video (opcional)" />
+    <textarea id="description" placeholder="Descripción o anécdota"></textarea>
+    <button onclick="addPost()">Guardar Recuerdo</button>
+  </div>
+
+  <div id="posts"></div>
+
+  <script>
+    function getSavedPosts() {
+      const saved = localStorage.getItem('romanticPosts');
+      return saved ? JSON.parse(saved) : [];
+    }
+
+    function savePosts(posts) {
+      localStorage.setItem('romanticPosts', JSON.stringify(posts));
+    }
+
+    function deletePost(index) {
+      const posts = getSavedPosts();
+      posts.splice(index, 1);
+      savePosts(posts);
+      renderPosts(posts);
+    }
+
+    function renderPosts(posts) {
+      const postsContainer = document.getElementById('posts');
+      postsContainer.innerHTML = '';
+      posts.forEach((post, index) => {
+        const postContainer = document.createElement('div');
+        postContainer.className = 'post';
+        postContainer.innerHTML = `
+          <h3>${post.title}</h3>
+          ${post.imageUrl ? `<img src="${post.imageUrl}" alt="Imagen del recuerdo" />` : ''}
+          ${post.videoUrl ? `<video controls src="${post.videoUrl}"></video>` : ''}
+          <p>${post.description}</p>
+          <button class="delete-button" onclick="deletePost(${index})">Borrar Recuerdo</button>
+        `;
+        postsContainer.prepend(postContainer);
+      });
+    }
+
+    function addPost() {
+      const title = document.getElementById('title').value;
+      const imageUrl = document.getElementById('imageUrl').value;
+      const videoUrl = document.getElementById('videoUrl').value;
+      const description = document.getElementById('description').value;
+
+      if (!title || (!imageUrl && !videoUrl && !description)) return;
+
+      const newPost = { title, imageUrl, videoUrl, description };
+      const posts = getSavedPosts();
+      posts.unshift(newPost);
+      savePosts(posts);
+      renderPosts(posts);
+
+      document.getElementById('title').value = '';
+      document.getElementById('imageUrl').value = '';
+      document.getElementById('videoUrl').value = '';
+      document.getElementById('description').value = '';
+    }
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', () => {
+      const posts = getSavedPosts();
+      renderPosts(posts);
+    });
+  </script>
+</body>
+</html>
