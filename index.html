@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Recuerdos</title>
+  <title>Nuestros Momentos</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -55,47 +55,72 @@
     .delete-button:hover {
       background-color: #a0002c;
     }
-    .preview-container {
-      margin-bottom: 20px;
-    }
   </style>
 </head>
 <body>
-  <h1>✈️ Nuestros viajes ✈️</h1>
+  <h1>✈️Nuestros viajes✈️</h1>
 
   <div class="form-container">
     <h2>Agregar nuevo recuerdo</h2>
     <input type="text" id="title" placeholder="Título del recuerdo" />
-    <input type="file" id="imageFile" accept="image/*" onchange="previewMedia()" />
-    <input type="file" id="videoFile" accept="video/*" onchange="previewMedia()" />
+    <input type="file" id="imageFile" accept="image/*" />
+    <input type="file" id="videoFile" accept="video/*" />
     <textarea id="description" placeholder="Descripción o anécdota"></textarea>
-    <div class="preview-container" id="mediaPreview"></div>
     <button onclick="addPost()">Guardar Recuerdo</button>
   </div>
 
   <div id="posts"></div>
 
   <script>
-    function getSavedPosts() {
-      const saved = localStorage.getItem('romanticPosts');
-      return saved ? JSON.parse(saved) : [];
+    let db;
+    const DB_NAME = 'romanticMemoriesDB';
+    const STORE_NAME = 'posts';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = function (e) {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+          }
+        };
+        request.onsuccess = function (e) {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = reject;
+      });
     }
 
-    function savePosts(posts) {
-      localStorage.setItem('romanticPosts', JSON.stringify(posts));
+    function savePost(post) {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.add(post);
+      transaction.oncomplete = () => loadPosts();
     }
 
-    function deletePost(index) {
-      const posts = getSavedPosts();
-      posts.splice(index, 1);
-      savePosts(posts);
-      renderPosts(posts);
+    function deletePost(id) {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.delete(id);
+      transaction.oncomplete = () => loadPosts();
+    }
+
+    function loadPosts() {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.getAll();
+
+      request.onsuccess = function () {
+        renderPosts(request.result);
+      };
     }
 
     function renderPosts(posts) {
       const postsContainer = document.getElementById('posts');
       postsContainer.innerHTML = '';
-      posts.forEach((post, index) => {
+      posts.slice().reverse().forEach(post => {
         const postContainer = document.createElement('div');
         postContainer.className = 'post';
         postContainer.innerHTML = `
@@ -103,9 +128,9 @@
           ${post.imageData ? `<img src="${post.imageData}" alt="Imagen del recuerdo" />` : ''}
           ${post.videoData ? `<video controls src="${post.videoData}"></video>` : ''}
           <p>${post.description}</p>
-          <button class="delete-button" onclick="deletePost(${index})">Borrar Recuerdo</button>
+          <button class="delete-button" onclick="deletePost(${post.id})">Borrar Recuerdo</button>
         `;
-        postsContainer.prepend(postContainer);
+        postsContainer.appendChild(postContainer);
       });
     }
 
@@ -115,32 +140,18 @@
       const videoFile = document.getElementById('videoFile').files[0];
       const description = document.getElementById('description').value;
 
-      if (!title && !description && !imageFile && !videoFile) return;
-
-      const readerPromises = [];
-      if (imageFile) {
-        readerPromises.push(readFileAsDataURL(imageFile));
-      } else {
-        readerPromises.push(Promise.resolve(null));
-      }
-      if (videoFile) {
-        readerPromises.push(readFileAsDataURL(videoFile));
-      } else {
-        readerPromises.push(Promise.resolve(null));
-      }
+      const readerPromises = [
+        imageFile ? readFileAsDataURL(imageFile) : Promise.resolve(null),
+        videoFile ? readFileAsDataURL(videoFile) : Promise.resolve(null)
+      ];
 
       Promise.all(readerPromises).then(([imageData, videoData]) => {
         const newPost = { title, imageData, videoData, description };
-        const posts = getSavedPosts();
-        posts.unshift(newPost);
-        savePosts(posts);
-        renderPosts(posts);
-
+        savePost(newPost);
         document.getElementById('title').value = '';
         document.getElementById('imageFile').value = '';
         document.getElementById('videoFile').value = '';
         document.getElementById('description').value = '';
-        document.getElementById('mediaPreview').innerHTML = '';
       });
     }
 
@@ -153,29 +164,9 @@
       });
     }
 
-    function previewMedia() {
-      const imageFile = document.getElementById('imageFile').files[0];
-      const videoFile = document.getElementById('videoFile').files[0];
-      const previewContainer = document.getElementById('mediaPreview');
-      previewContainer.innerHTML = '';
-
-      if (imageFile) {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(imageFile);
-        previewContainer.appendChild(img);
-      }
-
-      if (videoFile) {
-        const video = document.createElement('video');
-        video.src = URL.createObjectURL(videoFile);
-        video.controls = true;
-        previewContainer.appendChild(video);
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const posts = getSavedPosts();
-      renderPosts(posts);
+    document.addEventListener('DOMContentLoaded', async () => {
+      await openDB();
+      loadPosts();
     });
   </script>
 </body>
